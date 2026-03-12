@@ -75,8 +75,8 @@ export default function IlMenuPage() {
         {/* Menu selector */}
         {menus.length > 1 && (
           <div className="bg-white border-b">
-            <div className="max-w-4xl mx-auto overflow-x-auto">
-              <div className="flex gap-2 p-3 justify-center">
+            <div className="max-w-4xl mx-auto overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+              <div className="flex gap-2 px-4 py-3 w-max min-w-full justify-center">
                 {menus.map(menu => (
                   <button key={menu.id} onClick={() => setMenuAttivo(menu.id)}
                     className={`px-5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition ${
@@ -94,8 +94,8 @@ export default function IlMenuPage() {
 
         {/* Category tabs */}
         <div className="sticky top-16 sm:top-20 z-20 bg-white shadow-sm border-b">
-          <div className="max-w-4xl mx-auto overflow-x-auto">
-            <div className="flex gap-1 p-3 justify-center">
+          <div className="max-w-4xl mx-auto overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+            <div className="flex gap-2 px-4 py-3 w-max min-w-full justify-center">
               {categorieMenu.map(cat => (
                 <button key={cat.id} onClick={() => setCategoriaAttiva(cat.id)}
                   className={`px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition ${

@@ -297,8 +297,8 @@ export default function MenuPubblico() {
           {/* Menu selector (if multiple menus) */}
           {menus.length > 1 && (
             <div className="bg-white border-b">
-              <div className="max-w-lg mx-auto overflow-x-auto">
-                <div className="flex gap-1 p-2">
+              <div className="max-w-lg mx-auto overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+                <div className="flex gap-2 px-4 py-2 w-max min-w-full">
                   {menus.map(menu => (
                     <button key={menu.id} onClick={() => setMenuAttivo(menu.id)}
                       className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition ${
@@ -316,8 +316,8 @@ export default function MenuPubblico() {
 
           {/* Category tabs */}
           <div className="sticky top-[49px] bg-white shadow-sm z-10">
-            <div className="max-w-lg mx-auto overflow-x-auto">
-              <div className="flex gap-1 p-2">
+            <div className="max-w-lg mx-auto overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+              <div className="flex gap-2 px-4 py-2 w-max min-w-full">
                 {categorieMenu.map(cat => (
                   <button key={cat.id} onClick={() => setCategoriaAttiva(cat.id)}
                     className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${
