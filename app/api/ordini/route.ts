@@ -42,9 +42,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { tipo, tavolo_id, nome_cliente, telefono, indirizzo, piatti, totale, note } = body;
 
+    // Get current session for the table
+    let sessioneTavolo = null;
+    if (tavolo_id) {
+      const tavolo = await sql`SELECT sessione_corrente FROM tavoli WHERE id = ${tavolo_id}`;
+      if (tavolo.length > 0) {
+        sessioneTavolo = tavolo[0].sessione_corrente;
+      }
+    }
+
     const ordine = await sql`
-      INSERT INTO ordini (tipo, tavolo_id, nome_cliente, telefono, indirizzo, totale, stato, note)
-      VALUES (${tipo || 'tavolo'}, ${tavolo_id || null}, ${nome_cliente || ''}, ${telefono || ''}, ${indirizzo || ''}, ${totale}, 'nuovo', ${note || ''})
+      INSERT INTO ordini (tipo, tavolo_id, nome_cliente, telefono, indirizzo, totale, stato, note, sessione_tavolo)
+      VALUES (${tipo || 'tavolo'}, ${tavolo_id || null}, ${nome_cliente || ''}, ${telefono || ''}, ${indirizzo || ''}, ${totale}, 'nuovo', ${note || ''}, ${sessioneTavolo})
       RETURNING *
     `;
 

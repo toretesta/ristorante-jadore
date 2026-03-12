@@ -1,12 +1,31 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+
+interface PiattoOrdine {
+  id: number;
+  ordine_id: number;
+  nome: string;
+  quantita: number;
+  prezzo: number;
+}
+
+interface Ordine {
+  id: number;
+  stato: string;
+  totale: number;
+  created_at: string;
+  note: string;
+  piatti: PiattoOrdine[];
+}
 
 interface Tavolo {
   id: number;
   numero: number;
   posti: number;
   stato: string;
+  sessione_corrente: number;
 }
 
 const statoColori: Record<string, { bg: string; border: string; dot: string; text: string }> = {
@@ -21,12 +40,22 @@ const statoLabel: Record<string, string> = {
   riservato: 'Riservato',
 };
 
+const statiOrdine: Record<string, string> = {
+  nuovo: 'Nuovo',
+  in_preparazione: 'In Preparazione',
+  pronto: 'Pronto',
+  servito: 'Servito',
+};
+
 export default function TavoliPage() {
   const [tavoli, setTavoli] = useState<Tavolo[]>([]);
   const [caricamento, setCaricamento] = useState(true);
   const [qrTavolo, setQrTavolo] = useState<number | null>(null);
+  const [tavoloAperto, setTavoloAperto] = useState<number | null>(null);
+  const [ordiniTavolo, setOrdiniTavolo] = useState<Ordine[]>([]);
+  const [caricamentoOrdini, setCaricamentoOrdini] = useState(false);
 
-  const fetchTavoli = async () => {
+  const fetchTavoli = useCallback(async () => {
     try {
       const res = await fetch('/api/tavoli');
       const data = await res.json();
@@ -36,11 +65,34 @@ export default function TavoliPage() {
     } finally {
       setCaricamento(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchTavoli();
-  }, []);
+  }, [fetchTavoli]);
+
+  const fetchOrdiniTavolo = async (tavoloId: number) => {
+    setCaricamentoOrdini(true);
+    try {
+      const res = await fetch(`/api/tavoli?id=${tavoloId}`);
+      const data = await res.json();
+      setOrdiniTavolo(data.ordini || []);
+    } catch (error) {
+      console.error('Errore:', error);
+    } finally {
+      setCaricamentoOrdini(false);
+    }
+  };
+
+  const toggleTavoloAperto = (id: number) => {
+    if (tavoloAperto === id) {
+      setTavoloAperto(null);
+      setOrdiniTavolo([]);
+    } else {
+      setTavoloAperto(id);
+      fetchOrdiniTavolo(id);
+    }
+  };
 
   const cambiaStato = async (id: number, nuovoStato: string) => {
     try {
@@ -51,7 +103,9 @@ export default function TavoliPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setTavoli(prev => prev.map(t => t.id === id ? { ...t, stato: nuovoStato } : t));
+        setTavoli(prev => prev.map(t => t.id === id ? data.tavolo : t));
+        // Refresh orders if viewing this table
+        if (tavoloAperto === id) fetchOrdiniTavolo(id);
       } else {
         alert('Errore: ' + (data.error || 'Impossibile aggiornare lo stato'));
       }
@@ -59,6 +113,43 @@ export default function TavoliPage() {
       console.error('Errore nel cambio di stato:', error);
       alert('Errore di connessione nel cambio di stato');
     }
+  };
+
+  const cambiaStatoOrdine = async (ordineId: number, nuovoStato: string) => {
+    try {
+      const res = await fetch('/api/ordini', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: ordineId, stato: nuovoStato }),
+      });
+      if (res.ok && tavoloAperto) fetchOrdiniTavolo(tavoloAperto);
+    } catch (error) {
+      console.error('Errore:', error);
+    }
+  };
+
+  const aggiornaQuantita = async (ordineId: number, piattoOrdineId: number, quantita: number) => {
+    const res = await fetch('/api/ordini', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_quantita', ordine_id: ordineId, piatto_ordine_id: piattoOrdineId, quantita }),
+    });
+    if (res.ok && tavoloAperto) fetchOrdiniTavolo(tavoloAperto);
+  };
+
+  const rimuoviPiatto = async (ordineId: number, piattoOrdineId: number) => {
+    const res = await fetch('/api/ordini', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'remove_piatto', ordine_id: ordineId, piatto_ordine_id: piattoOrdineId }),
+    });
+    if (res.ok && tavoloAperto) fetchOrdiniTavolo(tavoloAperto);
+  };
+
+  const eliminaOrdine = async (ordineId: number) => {
+    if (!confirm('Eliminare questo ordine?')) return;
+    const res = await fetch(`/api/ordini?id=${ordineId}`, { method: 'DELETE' });
+    if (res.ok && tavoloAperto) fetchOrdiniTavolo(tavoloAperto);
   };
 
   const getQrUrl = (tavolo: Tavolo) => {
@@ -91,6 +182,13 @@ export default function TavoliPage() {
   };
 
   const countPerStato = (stato: string) => tavoli.filter((t) => t.stato === stato).length;
+
+  const statoBadge: Record<string, string> = {
+    nuovo: 'bg-blue-100 text-blue-800',
+    in_preparazione: 'bg-yellow-100 text-yellow-800',
+    pronto: 'bg-green-100 text-green-800',
+    servito: 'bg-gray-100 text-gray-800',
+  };
 
   if (caricamento) {
     return (
@@ -126,10 +224,11 @@ export default function TavoliPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {tavoli.map((tavolo) => {
           const colori = statoColori[tavolo.stato] || statoColori.libero;
+          const isAperto = tavoloAperto === tavolo.id;
           return (
             <div
               key={tavolo.id}
-              className={`rounded-xl border-2 ${colori.border} ${colori.bg} p-5 transition-all`}
+              className={`rounded-xl border-2 ${colori.border} ${colori.bg} p-5 transition-all ${isAperto ? 'sm:col-span-2 lg:col-span-2' : ''}`}
             >
               {/* Header */}
               <div className="flex items-center justify-between mb-4">
@@ -173,25 +272,33 @@ export default function TavoliPage() {
                 )}
               </div>
 
-              {/* QR Code */}
-              <div className="flex gap-2">
+              {/* Bottoni QR + Ordini */}
+              <div className="flex gap-2 mb-3">
+                <button
+                  onClick={() => toggleTavoloAperto(tavolo.id)}
+                  className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    isAperto ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                  }`}
+                >
+                  {isAperto ? 'Chiudi Ordini' : 'Vedi Ordini'}
+                </button>
                 <button
                   onClick={() => setQrTavolo(qrTavolo === tavolo.id ? null : tavolo.id)}
-                  className="flex-1 px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-300 transition-colors"
+                  className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-300 transition-colors"
                 >
-                  {qrTavolo === tavolo.id ? 'Nascondi QR' : 'Mostra QR'}
+                  QR
                 </button>
                 <button
                   onClick={() => stampaQr(tavolo)}
-                  className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition-colors"
+                  className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-300 transition-colors"
                 >
-                  Stampa QR
+                  Stampa
                 </button>
               </div>
 
               {/* QR Code display */}
               {qrTavolo === tavolo.id && (
-                <div className="mt-4 p-3 bg-white rounded-lg border border-gray-200 text-center">
+                <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200 text-center">
                   <img
                     src={getQrImageUrl(tavolo)}
                     alt={`QR Code Tavolo ${tavolo.numero}`}
@@ -200,6 +307,104 @@ export default function TavoliPage() {
                     height={160}
                   />
                   <p className="text-xs text-gray-500 break-all">{getQrUrl(tavolo)}</p>
+                </div>
+              )}
+
+              {/* Ordini sessione corrente */}
+              {isAperto && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <h4 className="text-sm font-bold text-gray-700 mb-2">
+                    Ordini sessione corrente
+                  </h4>
+                  {caricamentoOrdini ? (
+                    <div className="flex justify-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                    </div>
+                  ) : ordiniTavolo.length === 0 ? (
+                    <p className="text-xs text-gray-500 py-2">Nessun ordine per questa sessione.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {ordiniTavolo.map((ordine) => (
+                        <div key={ordine.id} className="bg-white rounded-lg border border-gray-200 p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-gray-700">#{ordine.id}</span>
+                              <span className="text-xs text-gray-400">
+                                {new Date(ordine.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statoBadge[ordine.stato] || 'bg-gray-100'}`}>
+                              {statiOrdine[ordine.stato] || ordine.stato}
+                            </span>
+                          </div>
+
+                          {/* Piatti con modifica */}
+                          <div className="space-y-1 mb-2">
+                            {ordine.piatti.map((piatto) => (
+                              <div key={piatto.id} className="flex items-center justify-between text-xs">
+                                <span className="text-gray-700 flex-1">
+                                  {piatto.quantita}x {piatto.nome}
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-gray-500 mr-1">
+                                    {'\u20AC'}{(Number(piatto.prezzo) * piatto.quantita).toFixed(2)}
+                                  </span>
+                                  <button
+                                    onClick={() => aggiornaQuantita(ordine.id, piatto.id, piatto.quantita - 1)}
+                                    className="w-5 h-5 flex items-center justify-center bg-gray-100 rounded text-xs hover:bg-gray-200"
+                                  >-</button>
+                                  <button
+                                    onClick={() => aggiornaQuantita(ordine.id, piatto.id, piatto.quantita + 1)}
+                                    className="w-5 h-5 flex items-center justify-center bg-gray-100 rounded text-xs hover:bg-gray-200"
+                                  >+</button>
+                                  <button
+                                    onClick={() => rimuoviPiatto(ordine.id, piatto.id)}
+                                    className="w-5 h-5 flex items-center justify-center bg-red-50 text-red-600 rounded text-xs hover:bg-red-100"
+                                  >x</button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {ordine.note && (
+                            <p className="text-xs text-yellow-700 bg-yellow-50 rounded p-1.5 mb-2">Note: {ordine.note}</p>
+                          )}
+
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <span className="text-sm font-bold">{'\u20AC'}{Number(ordine.totale).toFixed(2)}</span>
+                            <div className="flex gap-1">
+                              {Object.entries(statiOrdine).map(([key, label]) => (
+                                <button
+                                  key={key}
+                                  onClick={() => ordine.stato !== key && cambiaStatoOrdine(ordine.id, key)}
+                                  disabled={ordine.stato === key}
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                                    ordine.stato === key
+                                      ? (statoBadge[key] || 'bg-gray-200') + ' cursor-default'
+                                      : 'bg-gray-50 text-gray-500 hover:bg-gray-100 cursor-pointer'
+                                  }`}
+                                >{label}</button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => eliminaOrdine(ordine.id)}
+                            className="w-full mt-2 px-2 py-1 bg-red-50 text-red-600 rounded text-xs font-medium hover:bg-red-100 transition-colors"
+                          >
+                            Elimina Ordine
+                          </button>
+                        </div>
+                      ))}
+
+                      {/* Totale sessione */}
+                      <div className="bg-white rounded-lg border border-gray-200 p-3 text-center">
+                        <span className="text-sm font-bold text-gray-700">
+                          Totale Tavolo: {'\u20AC'}{ordiniTavolo.reduce((sum, o) => sum + Number(o.totale), 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

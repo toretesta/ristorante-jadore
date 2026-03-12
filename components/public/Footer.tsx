@@ -70,8 +70,14 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-gray-800 mt-10 pt-6 text-center text-xs text-gray-500">
-          &copy; {new Date().getFullYear()} J&apos;adore Ristorante. Tutti i diritti riservati.
+        <div className="border-t border-gray-800 mt-10 pt-6 text-center text-xs text-gray-500 space-y-1">
+          <p>&copy; {new Date().getFullYear()} J&apos;adore Ristorante. Tutti i diritti riservati.</p>
+          <p>
+            Website e sistema informatico realizzato da{' '}
+            <a href="https://testasalvatore.it" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 transition">
+              Salvatore Testa
+            </a>
+          </p>
         </div>
       </div>
     </footer>
