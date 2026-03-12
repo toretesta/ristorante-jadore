@@ -34,11 +34,7 @@ const statiLabel: Record<string, string> = {
   servito: 'Servito',
 };
 
-const prossimoStato: Record<string, string> = {
-  nuovo: 'in_preparazione',
-  in_preparazione: 'pronto',
-  pronto: 'servito',
-};
+const statiFlow = ['nuovo', 'in_preparazione', 'pronto', 'servito'];
 
 const statoBadgeColori: Record<string, string> = {
   nuovo: 'bg-blue-100 text-blue-800 border-blue-200',
@@ -78,9 +74,7 @@ export default function OrdiniPage() {
     return () => clearInterval(interval);
   }, [fetchOrdini]);
 
-  const avanzaStato = async (id: number, statoAttuale: string) => {
-    const nuovoStato = prossimoStato[statoAttuale];
-    if (!nuovoStato) return;
+  const cambiaStato = async (id: number, nuovoStato: string) => {
     try {
       const res = await fetch('/api/ordini', {
         method: 'PUT',
@@ -241,24 +235,37 @@ export default function OrdiniPage() {
                   <span className="text-lg font-bold text-gray-900">
                     {'\u20AC'}{Number(ordine.totale).toFixed(2)}
                   </span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setOrdineAperto(ordineAperto === ordine.id ? null : ordine.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        ordineAperto === ordine.id ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {ordineAperto === ordine.id ? 'Chiudi' : 'Modifica'}
-                    </button>
-                    {prossimoStato[ordine.stato] && (
+                  <button
+                    onClick={() => setOrdineAperto(ordineAperto === ordine.id ? null : ordine.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      ordineAperto === ordine.id ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {ordineAperto === ordine.id ? 'Chiudi' : 'Modifica'}
+                  </button>
+                </div>
+
+                {/* Stato buttons - sempre visibili */}
+                <div className="flex gap-1 mt-3 pt-3 border-t border-gray-100">
+                  {statiFlow.map((stato) => {
+                    const isActive = ordine.stato === stato;
+                    const colori: Record<string, string> = {
+                      nuovo: isActive ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 hover:bg-blue-100',
+                      in_preparazione: isActive ? 'bg-yellow-500 text-white' : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100',
+                      pronto: isActive ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700 hover:bg-green-100',
+                      servito: isActive ? 'bg-gray-600 text-white' : 'bg-gray-50 text-gray-700 hover:bg-gray-100',
+                    };
+                    return (
                       <button
-                        onClick={() => avanzaStato(ordine.id, ordine.stato)}
-                        className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition-colors"
+                        key={stato}
+                        onClick={() => !isActive && cambiaStato(ordine.id, stato)}
+                        disabled={isActive}
+                        className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${colori[stato]} ${isActive ? 'cursor-default' : 'cursor-pointer'}`}
                       >
-                        {'\u2192'} {statiLabel[prossimoStato[ordine.stato]]}
+                        {statiLabel[stato]}
                       </button>
-                    )}
-                  </div>
+                    );
+                  })}
                 </div>
 
                 {ordineAperto === ordine.id && (

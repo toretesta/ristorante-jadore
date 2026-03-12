@@ -49,9 +49,15 @@ export default function TavoliPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, stato: nuovoStato }),
       });
-      if (res.ok) fetchTavoli();
+      const data = await res.json();
+      if (res.ok) {
+        setTavoli(prev => prev.map(t => t.id === id ? { ...t, stato: nuovoStato } : t));
+      } else {
+        alert('Errore: ' + (data.error || 'Impossibile aggiornare lo stato'));
+      }
     } catch (error) {
       console.error('Errore nel cambio di stato:', error);
+      alert('Errore di connessione nel cambio di stato');
     }
   };
 
