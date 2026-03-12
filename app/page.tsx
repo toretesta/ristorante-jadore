@@ -92,7 +92,7 @@ export default function HomePage() {
                       )}
                     </div>
                     <span className="text-lg font-bold text-amber-700 whitespace-nowrap">
-                      &euro;{piatto.prezzo.toFixed(2)}
+                      &euro;{Number(piatto.prezzo).toFixed(2)}
                     </span>
                   </div>
                 </div>
